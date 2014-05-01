@@ -1,0 +1,56 @@
+# SET THIS TO THE VERSION YOU WANT TO BUILD
+PYVER="2.7.6"
+
+if [ "${PYVER:0:3}" != "2.7" ]; then
+    echo -e "\n\n"
+    echo "************************************************"
+    echo "                                                "
+    echo "         ONLY PYTHON 2.7.X is supported         "
+    echo "         YOU SET \$PYVER TO ${PYVER}            "
+    echo "                                                "
+    echo "************************************************"
+    exit 1
+fi
+
+RPMDIR=$HOME/rpmbuild
+
+sudo yum -y groupinstall "Development Tools"
+sudo yum -y install kernel-devel rpmdevtools rpmlint rpm-build
+sudo yum -y install bzip2-devel db4-devel expat-devel
+sudo yum install autoconf bzip2 bzip2-devel db4-devel expat-devel \
+    findutils gcc-c++ glibc-devel make openssl-devel pkgconfig readline-devel \
+    sqlite-devel tar zlib-devel
+
+rpmdev-setuptree
+
+cd $RPMDIR/SOURCES
+if [ ! -e Python-${PYVER}.tgz ]; then
+    wget --no-check-certificate http://www.python.org/ftp/python/${PYVER}/Python-${PYVER}.tgz
+fi
+
+sed "s/PYVER/${PYVER}/g" /vagrant/scripts/python27.spec.tmpl > $RPMDIR/SPECS/python27.spec
+
+cd $RPMDIR/SPECS
+QA_RPATHS=$[ 0x0001|0x0010 ] rpmbuild -bb python27.spec
+
+arch=$(uname -m)
+
+if [ $? -ne 0 ]; then
+    echo -e "\n\n"
+    echo "************************************************"
+    echo "                                                "
+    echo "   PYTHON ${PYVER} BUILD DIDN'T EXIT CLEANLY    "
+    echo "                                                "
+    echo "************************************************"
+else
+    echo -e "\n\n"
+    echo "***********************************************"
+    echo "                                               "
+    echo "       PYTHON ${PYVER} BUILD SUCCESSFUL        "
+    echo "       COPYING RPMS to $VAGRANT/RPMS dir       "
+    echo "       $(ls /root/rpmbuild/RPMS/${arch}/*rpm)   "
+    echo "                                               "
+    echo "***********************************************"
+    mkdir -p /vagrant/rpms
+    cp -p /root/rpmbuild/RPMS/${arch}/*rpm /vagrant/rpms/.
+fi
